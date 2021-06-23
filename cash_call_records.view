@@ -1,0 +1,384 @@
+##include: "cash_phone_daily_aggregate.view"
+
+view: cash_call_records {
+  ## owner: jsolomon
+
+##extends: [cash_phone_daily_aggregate]
+  ##sql_table_name: APP_CASH_CS.PREPROD.CALL_RECORDS
+
+  sql_table_name: APP_CASH_CS.PREPROD.CALL_RECORDS ;;
+
+  ## squarewave: https://squarewave.sqprod.co/#/jobs/841
+  dimension: contact_id {
+    type: string
+    sql: ${TABLE}."CONTACT_ID" ;;
+  }
+
+  dimension_group: call_start_time{
+    type: time
+    timeframes: [
+      raw,
+      time,
+      time_of_day,
+      minute,
+      hour,
+      minute30,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: ${TABLE}."CALL_START_TIME";;
+    drill_fields: [call_start_raw]
+  }
+
+
+  dimension: call_start_time_minute_30_short {
+    sql: ${call_start_time_minute30};;
+    html: {{rendered_value | date: '%R'}} ;;
+  }
+
+  dimension:  call_start_raw{
+    type: date_time
+    sql: ${TABLE}."CALL_START_TIME" ;;
+  }
+
+  dimension_group: call_end_time{
+    type: time
+    timeframes: [
+      raw,
+      time,
+      hour,
+      minute30,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: ${TABLE}."CALL_END_TIME";;
+  }
+
+  dimension: call_end_raw{
+    type: date_time
+    sql: ${TABLE}."CALL_END_TIME" ;;
+  }
+
+  dimension: call_date{
+    type: date
+    sql: ${TABLE}."CALL_DATE" ;;
+  }
+
+  dimension_group: callback_time{
+    type: time
+    timeframes: [
+      raw,
+      hour,
+      minute30,
+      date,
+      week,
+      month,
+      quarter,
+      year
+    ]
+    sql: ${TABLE}."CALLBACK_TIME";;
+  }
+
+  dimension: customer_end_point{
+    type: string
+    sql: ${TABLE}."CUSTOMER_END_POINT" ;;
+  }
+
+  dimension:  speed_to_callback{
+    type: number
+    sql:  ${TABLE}."SPEED_TO_CALLBACK" ;;
+  }
+
+  dimension: connection_attempts{
+    type: string
+    sql: ${TABLE}."CONNECTION_ATTEMPTS" ;;
+  }
+
+  dimension: queue_name{
+    type:  string
+    sql: ${TABLE}."QUEUE_NAME" ;;
+  }
+
+  dimension: raw_ivr_outcome{
+    type: string
+    sql: ${TABLE}."RAW_IVR_OUTCOME" ;;
+  }
+
+  dimension: initial_contact_id {
+    type: string
+    sql: ${TABLE}."INITIAL_CONTACT_ID" ;;
+  }
+
+  dimension: agent_user_name {
+    type: string
+    sql: ${TABLE}."AGENT_USER_NAME" ;;
+  }
+
+  dimension: agent_num_holds {
+    type: number
+    sql: ${TABLE}."AGENT_NUM_HOLDS" ;;
+  }
+
+  dimension: talk_time {
+    type: number
+    sql: ${TABLE}."TALK_TIME" ;;
+  }
+
+  dimension: wrap_time {
+    type: number
+    sql: ${TABLE}."WRAP_TIME" ;;
+  }
+
+  dimension: hold_time {
+    type: number
+    sql: ${TABLE}."HOLD_TIME" ;;
+  }
+
+  dimension: handle_time {
+    type: number
+    sql: ${TABLE}."HANDLE_TIME" ;;
+  }
+
+  dimension: wait_time {
+    type: number
+    sql: ${TABLE}."WAIT_TIME" ;;
+  }
+
+  dimension: call_outcome {
+    type: string
+    sql: ${TABLE}."CALL_OUTCOME" ;;
+  }
+
+  dimension: initiation_method {
+    type: string
+    sql: ${TABLE}."INITIATION_METHOD" ;;
+  }
+
+  dimension: requested_callback {
+    type: string
+    sql: ${TABLE}."REQUESTED_CALLBACK" ;;
+  }
+
+  dimension: is_customer {
+    type: yesno
+    sql: ${TABLE}."IS_CUSTOMER" ;;
+  }
+
+  dimension: hit_volume_threshold {
+    type: yesno
+    sql: ${TABLE}."HIT_VOLUME_THRESHOLD" ;;
+  }
+
+  dimension: is_handled {
+    type: yesno
+    sql: ${TABLE}."IS_HANDLED" ;;
+  }
+
+  ##Aggregates
+
+  measure: dialouts {
+    type: number
+    sql:  COUNT(distinct case when ${initiation_method}='OUTBOUND' then ${contact_id} else null end) ;;
+    drill_fields: [call_start_raw]
+  }
+
+  measure: calls_offered {
+    type: number
+    sql: COUNT(distinct case when ${initiation_method} in ('API', 'INBOUND') then ${contact_id} else null end);;
+  }
+
+  measure: callbacks {
+    type: number
+    sql: COUNT(distinct case when ${initiation_method} = 'CALLBACK' then ${contact_id} else null end) ;;
+  }
+  
+  measure: inbound {
+    type: number
+    sql:  COUNT(distinct case when ${initiation_method} = 'INBOUND' then ${contact_id} else null end) ;;
+  }
+
+  measure: unique_callers {
+    type: number
+    sql: COUNT(distinct ${customer_end_point}) ;;
+  }
+  
+  measure: customer_callers {
+    type: number
+    sql: COUNT(distincy CASE WHEN ${is_customer} = TRUE THEN ${contact_id} ELSE NULL END) ;;
+  }
+
+  measure: non_customer_calls{
+    type: number
+    sql: COUNT(distinct CASE WHEN ${is_customer} = FALSE THEN ${contact_id} ELSE NULL END) ;;
+  }
+
+  measure:  calls_rejected{
+    type: number
+    sql:  COUNT(distinct case when ${call_outcome} ='CustomerRejected' then ${contact_id} else null end) ;;
+  }
+
+  measure: calls_abandoned {
+    type: number
+    sql: COUNT(distinct case when ${call_outcome} ='Abandoned' then ${contact_id} else null end) ;;
+  }
+
+  measure: calls_handled {
+    type: number
+    sql:  COUNT(distinct case when ${is_handled} = true then ${contact_id} else null end) ;;
+  }
+
+  measure: calls_routed{
+    type: number
+    sql: ${calls_offered}-${calls_abandoned} ;;
+  }
+
+  measure: outbound_handled {
+    type: number
+    sql: COUNT(distinct case when ${call_outcome} in ('Connected') AND ${call_end_time_date} < '2021-02-22' then ${contact_id} else null end) ;;
+  }
+
+  measure: calls_handled_in_realtime { #inbound_handled
+    type: number
+    sql:  COUNT(distinct case when ${call_outcome} in ('Connected') AND ${call_end_time_date}>= '2021-02-22' then ${contact_id} else null end) ;;
+  }
+
+  measure: callbacks_handled {
+    type: number
+    sql: COUNT(distinct case when ${call_outcome} in ('Callback Attempt') then ${contact_id} else null end) ;;
+  }
+
+
+  measure: calls_handled_without_pickup{
+    type: number
+    sql: COUNT(distinct case when ${call_outcome} ='NoPickup' then ${contact_id} else null end) ;;
+  }
+
+  measure: in_service_level {
+    type: number
+    sql: COUNT(distinct CASE WHEN ${initiation_method} in ('API', 'INBOUND') AND ${wait_time} < 120 AND ${agent_user_name} IS NOT NULL THEN ${contact_id} ELSE NULL END) ;;
+    #sql: COUNT(distinct CASE WHEN ${wait_time} < 120 AND ${agent_user_name} IS NOT NULL THEN ${contact_id} ELSE NULL END) ;;
+  }
+
+  measure: service_level_percent{
+    type: number
+    description: "% of Inbound calls handled within SLA"
+    sql: CASE WHEN ${in_service_level}>${dialouts} THEN ((${in_service_level} - ${dialouts})/${inbound})*100 ELSE 0 END;;
+    value_format: "0.00\%"
+  }
+
+  measure:  total_handle_time{
+    type: sum
+    sql:  case when ${is_handled} = true AND ${handle_time} IS NOT NULL then ${handle_time}/86400.0 else null end;;
+    #sql: ${handle_time};;
+    #value_format: "[h]\h m\m s\s"
+  }
+
+  measure: avg_handle_time{
+    type: number
+    sql: ${total_handle_time}/nullif(${calls_handled}, 0);;
+    value_format: "[mm]:ss"
+  }
+
+  measure: total_talk_time {
+    type: sum
+    sql: ${talk_time}/86400.0 ;;
+    #value_format: "[h]\h m\m s\s"
+  }
+
+  measure: total_wrap_time {
+    type: sum
+    sql: ${wrap_time}/86400.0 ;;
+    #value_format: "[h]\h m\m s\s"
+  }
+
+  measure: total_wait_time {
+    type: sum
+    sql: ${wait_time}/86400.0 ;;
+    #value_format: "[h]\h m\m s\s"
+  }
+
+  measure: total_hold_time {
+    type: sum
+    sql: ${hold_time}/86400.0 ;;
+    #value_format: "[h]\h m\m s\s"
+  }
+
+  measure: total_speed_to_callback {
+    type: sum
+    sql: ${speed_to_callback}/86400.0 ;;
+    #value_format: "[h]\h m\m s\s"
+  }
+
+
+
+  # # Define your dimensions and measures here, like this:
+  # dimension: user_id {
+  #   description: "Unique ID for each user that has ordered"
+  #   type: number
+  #   sql: ${TABLE}.user_id ;;
+  # }
+  #
+  # dimension: lifetime_orders {
+  #   description: "The total number of orders for each user"
+  #   type: number
+  #   sql: ${TABLE}.lifetime_orders ;;
+  # }
+  #
+  # dimension_group: most_recent_purchase {
+  #   description: "The date when each user last ordered"
+  #   type: time
+  #   timeframes: [date, week, month, year]
+  #   sql: ${TABLE}.most_recent_purchase_at ;;
+  # }
+  #
+  # measure: total_lifetime_orders {
+  #   description: "Use this for counting lifetime orders across many users"
+  #   type: sum
+  #   sql: ${lifetime_orders} ;;
+  # }
+}
+
+# view: cash_call_records {
+#   # Or, you could make this view a derived table, like this:
+#   derived_table: {
+#     sql: SELECT
+#         user_id as user_id
+#         , COUNT(*) as lifetime_orders
+#         , MAX(orders.created_at) as most_recent_purchase_at
+#       FROM orders
+#       GROUP BY user_id
+#       ;;
+#   }
+#
+#   # Define your dimensions and measures here, like this:
+#   dimension: user_id {
+#     description: "Unique ID for each user that has ordered"
+#     type: number
+#     sql: ${TABLE}.user_id ;;
+#   }
+#
+#   dimension: lifetime_orders {
+#     description: "The total number of orders for each user"
+#     type: number
+#     sql: ${TABLE}.lifetime_orders ;;
+#   }
+#
+#   dimension_group: most_recent_purchase {
+#     description: "The date when each user last ordered"
+#     type: time
+#     timeframes: [date, week, month, year]
+#     sql: ${TABLE}.most_recent_purchase_at ;;
+#   }
+#
+#   measure: total_lifetime_orders {
+#     description: "Use this for counting lifetime orders across many users"
+#     type: sum
+#     sql: ${lifetime_orders} ;;
+#   }
+# }
